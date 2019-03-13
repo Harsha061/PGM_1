@@ -34,26 +34,34 @@ def greedy_learn(steps=5, seed=None, splits=10, save=True, savepath = 'submissio
     toposort = list(rg.permutation(22))
     extra_edges = set()
     nodes = 23
+
+    #Initial Edges
     edges = [(22,i) for i in range(22)]
     train = get_train()
+    #Get score on naive Bayes
     max_score = get_kfold_accuracy(BayesN(nodes=nodes, edges=edges), train, splits)
-    #print('Step 0:', max_score)
+
     st = 0
     f = 0
     while st < steps and f < failed_runs:
         while True:
+            #Select Edges
             u = rg.randint(22)
             v = rg.randint(22)
             if u == v or (u,v) in edges or (v,u) in edges: continue
             cand_edge = (u,v) if toposort.index(u)<toposort.index(v) else (v,u)
             break
         edges.append(cand_edge)
+
+        #Get Score with new network
         score = get_kfold_accuracy(BayesN(nodes=nodes, edges=edges), train, splits)
+
+        #Check if addtion of edge increased performance
         if score > max_score:
             extra_edges.add(cand_edge)
             max_score = score
             st += 1
-            #print('Step',st,':',max_score,'Extra Edges:',extra_edges)
+            print('Step',st,':',max_score,'Extra Edges:',extra_edges)
         else:
             edges.pop()
             f+= 1
@@ -72,42 +80,49 @@ def greedy_learn2(steps=5, seed=None, splits=10, save=True, savepath = 'submissi
     g = nx.DiGraph()
     for i in range(22):
         g.add_edge(22,i)
-    extra_edges = set()
     nodes = 23
-    edges = [(22,i) for i in range(22)]
+
+    #initialize edges as Naive Bayes
+    edges = set([(22,i) for i in range(22)])
     train = get_train()
+
+    #Get score for Naive Bayes
     max_score = get_kfold_accuracy(BayesN(nodes=nodes, edges=edges), train, splits)
     print('Step 0:', max_score)
     st = 0
     f = 0
     while st < steps and f < failed_runs:
+        #Select r
         r = rg.randint(3)
         gr = copy.deepcopy(g)
-        ee = copy.deepcopy(extra_edges)
         ed = copy.deepcopy(edges)
+
+        #Add random edge
         if r == 0:
             while True:
                 u = rg.randint(22)
                 v = rg.randint(22)
                 if u==v or (u,v) in g.edges: continue
                 g.add_edge(u,v)
+                #Reject if G in not DAG
                 if not nx.is_directed_acyclic_graph(g):
                     g.remove_edge(u,v)
                     continue
                 break
             if nx.is_directed_acyclic_graph(g):
-                edges.append((u,v))
-                extra_edges.add((u,v))
+                edges.add((u,v))
+        #Delete a random edge
         elif r == 1:
-            if len(extra_edges) == 0: continue
-            del_edge = random.sample(extra_edges,1)[0]
+            if len(edges)<=3: continue
+            del_edge = random.sample(edges,1)[0]
             edges.remove(del_edge)
-            extra_edges.remove(del_edge)
             g.remove_edge(*del_edge)
+        
+        #Reverse orientation of random edge
         else:
-            if len(extra_edges) == 0: continue
-            for i in range(1000):
-                act_edge = random.sample(extra_edges,1)[0]
+            if len(edges)<=3: continue
+            for i in range(len(edges)):
+                act_edge = random.sample(edges,1)[0]
                 rev_edge = (act_edge[1], act_edge[0])
                 g.remove_edge(*act_edge)
                 g.add_edge(*rev_edge)
@@ -117,24 +132,21 @@ def greedy_learn2(steps=5, seed=None, splits=10, save=True, savepath = 'submissi
                     g.remove_edge(*rev_edge)
                     g.add_edge(*act_edge)
             if nx.is_directed_acyclic_graph(g):
-                extra_edges.remove(act_edge)
-                extra_edges.add(rev_edge)
                 edges.remove(act_edge)
-                edges.append(rev_edge)
+                edges.add(rev_edge)
                 
-
+        #Get Score on new BN
         score = get_kfold_accuracy(BayesN(nodes=nodes, edges=edges), train, splits)
         if score > max_score:
             max_score = score
             st += 1
-            print('Step',st,':',max_score, 'Extra Edges:', extra_edges)
+            print('Step',st,':',max_score, 'Edges:', edges)
         else:
             edges = ed
-            extra_edges = ee
             g = gr
             f+= 1
     print('Max Score:', max_score)
-    print('Extra Edges:', extra_edges)
+    print('Edges:', edges)
     if save:
         test_data = read_csv(utils.TEST_PATH)[:,1:]
         model = BayesN(nodes=nodes, edges=edges)
@@ -149,7 +161,7 @@ if __name__ == "__main__":
     models = []
     for s in seeds:
         print('Seed:',s)
-        m = greedy_learn2(steps=20, seed=s, savepath='submissions/greedy__'+str(s)+'.csv')
+        m = greedy_learn2(steps=20, seed=s,splits=5, savepath='submissions/greedyd__'+str(s)+'.csv', failed_runs=5000)
         models.append(m)
 
 

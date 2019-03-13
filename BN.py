@@ -28,23 +28,37 @@ class BayesN:
             if len(self.parents[f]) == 0:
                 prb = np.ones(self.feat_len[f])/self.feat_len[f]
             else:
+                #Get parents of node
                 parent_values = [self.unique[i] for i in self.parents[f]]
+                #Get all possible values of parents
                 parent_val_size = [self.feat_len[i] for i in self.parents[f]]
                 prb = np.zeros((self.feat_len[f],)+tuple(parent_val_size))
+
+                #For each value of node
                 for v in self.unique[f]:
+
+                    #For each combination of values of parents
                     for x in product(*parent_values):
                         idx = np.arange(data.shape[0])
+
+                        #Estimate instances with such values for parents
                         for p in enumerate(self.parents[f]):
                             idx = intersect1d(idx,np.where(data[:,p[1]]==x[p[0]])[0])
+
+                        #Estimate instances with value of node and its parents
                         idx2 = intersect1d(idx, np.where(data[:,f]==v)[0])
+                        #Estimate Probability with Laplacian Smoothing
                         val = (len(idx2)+self.laplacian)/(len(idx)+self.laplacian*self.feat_len[f])
                         prb.itemset((v,)+x,val)
             self.probabs.append(prb)
         
     def get_joint_log(self, features):
         ans = 0
+        # For each feature
         for f in range(self.n):
+            #Get value of parents
             parent_vals = [features[i] for i in self.parents[f]]
+            # Add log P(Xi|Parents(Xi))
             ans += np.log(self.probabs[f].item(*((features[f],)+ tuple(parent_vals))))
         return ans
     
@@ -53,10 +67,13 @@ class BayesN:
         y_pred = []
         for i in range(x_vals.shape[0]):
             probs = []
+            # For each value of class y
             for j in self.unique[-1]:
                 l = list(x_vals[i])
                 l.append(j)
+                #Get log probabs
                 probs.append(self.get_joint_log(l))
+            #Argmax for each Y
             y = self.unique[-1][np.argmax(probs)]
             y_pred.append(y)
         return y_pred

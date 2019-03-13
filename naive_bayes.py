@@ -24,11 +24,16 @@ class NBayes:
 
         for i in range(self.num_features):
             feat_probabs = {}
+            #For Each value of Xi
             for x in self.unique_features[i]:
+                #Get number of instances of Xi
                 idx1 = np.where(self.features[:,i]==x)[0]
                 class_probabs = {}
+                #For each class value Y
                 for c in self.classes:
+                    #Get number of instance of y
                     idx2 = self.class_idx[c]
+                    #Use Laplacian smoothing to estimate P(Xi|Y)
                     pr = (len(intersect1d(idx1,idx2))+self.laplacian)/(len(idx2)+self.laplacian*len(self.unique_features[i]))
                     class_probabs[c] = pr
                 feat_probabs[x] = class_probabs
